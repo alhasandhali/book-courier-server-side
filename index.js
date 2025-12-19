@@ -19,7 +19,7 @@ if (process.env.FIREBASE_SERVICE_KEY) {
     credential: admin.credential.cert(serviceAccount),
   });
 } else {
-    console.warn("Warning: FIREBASE_SERVICE_KEY not found.");
+  console.warn("Warning: FIREBASE_SERVICE_KEY not found.");
 }
 
 // middleware
@@ -73,10 +73,10 @@ async function run() {
       const email = req.token_email;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      if (user?.role === 'admin') {
+      if (user?.role === "admin") {
         next();
       } else {
-        return res.status(403).send({ message: 'forbidden access' });
+        return res.status(403).send({ message: "forbidden access" });
       }
     };
 
@@ -84,15 +84,15 @@ async function run() {
       const email = req.token_email;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      if (user?.role === 'librarian' || user?.role === 'admin') {
+      if (user?.role === "librarian" || user?.role === "admin") {
         next();
       } else {
-        return res.status(403).send({ message: 'forbidden access' });
+        return res.status(403).send({ message: "forbidden access" });
       }
     };
 
     // --- Users Routes ---
-    
+
     // Get all users (Admin only)
     app.get("/users", verifyFirebaseToken, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -130,8 +130,8 @@ async function run() {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updatedDoc = {
-          $set: req.body
-        }
+          $set: req.body,
+        };
         const result = await usersCollection.updateOne(filter, updatedDoc);
         res.send(result);
       } catch (err) {
@@ -142,15 +142,14 @@ async function run() {
     // Delete user
     app.delete("/user/:id", verifyFirebaseToken, async (req, res) => {
       try {
-          const id = req.params.id;
-          const query = { _id: new ObjectId(id) };
-          const result = await usersCollection.deleteOne(query);
-          res.send(result);
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await usersCollection.deleteOne(query);
+        res.send(result);
       } catch (err) {
         res.status(500).send({ error: err.message });
       }
     });
-
 
     // --- Books Routes ---
 
@@ -159,20 +158,20 @@ async function run() {
       try {
         const { category, sort, search, status } = req.query;
         let query = {};
-        
+
         if (category) query.category = category;
         if (status) query.status = status;
         if (search) {
-            query.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { author: { $regex: search, $options: 'i' } }
-            ];
+          query.$or = [
+            { title: { $regex: search, $options: "i" } },
+            { author: { $regex: search, $options: "i" } },
+          ];
         }
-            
+
         let cursor = booksCollection.find(query);
         if (sort) {
-            const sortOrder = sort === 'asc' ? 1 : -1;
-            cursor = cursor.sort({ price: sortOrder });
+          const sortOrder = sort === "asc" ? 1 : -1;
+          cursor = cursor.sort({ price: sortOrder });
         }
         const result = await cursor.toArray();
         res.send(result);
@@ -190,55 +189,69 @@ async function run() {
     });
 
     // Post book (Librarian/Admin)
-    app.post("/book", verifyFirebaseToken, verifyLibrarian, async (req, res) => {
-      try {
-        const newBook = req.body;
-        // Basic validation
-        if (!newBook.title || !newBook.author || !newBook.price) {
+    app.post(
+      "/book",
+      verifyFirebaseToken,
+      verifyLibrarian,
+      async (req, res) => {
+        try {
+          const newBook = req.body;
+          // Basic validation
+          if (!newBook.title || !newBook.author || !newBook.price) {
             return res.status(400).send({ message: "Missing required fields" });
+          }
+          newBook.createdAt = new Date();
+          const result = await booksCollection.insertOne(newBook);
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ error: err.message });
         }
-        newBook.createdAt = new Date();
-        const result = await booksCollection.insertOne(newBook);
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
       }
-    });
+    );
 
     // Update Book (Librarian/Admin)
-    app.patch("/book/:id", verifyFirebaseToken, verifyLibrarian, async (req, res) => {
-      try {
-        const { id } = req.params;
-        const updateData = req.body;
-        const filter = { _id: new ObjectId(id) };
-        const updateDoc = { $set: updateData };
-        const result = await booksCollection.updateOne(filter, updateDoc);
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
+    app.patch(
+      "/book/:id",
+      verifyFirebaseToken,
+      verifyLibrarian,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const updateData = req.body;
+          const filter = { _id: new ObjectId(id) };
+          const updateDoc = { $set: updateData };
+          const result = await booksCollection.updateOne(filter, updateDoc);
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ error: err.message });
+        }
       }
-    });
+    );
 
     // Delete book (Admin only)
-    app.delete("/book/:id", verifyFirebaseToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await booksCollection.deleteOne(query);
-      res.send(result);
-    });
-
+    app.delete(
+      "/book/:id",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await booksCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
 
     // --- Orders Routes ---
 
     // Get all orders
     app.get("/orders", verifyFirebaseToken, async (req, res) => {
-        const { email } = req.query;
-        let query = {};
-        if (email) {
-            query.email = email;
-        }
-        const result = await ordersCollection.find(query).toArray();
-        res.send(result);
+      const { email } = req.query;
+      let query = {};
+      if (email) {
+        query.email = email;
+      }
+      const result = await ordersCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Post Order
@@ -259,8 +272,8 @@ async function run() {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updatedDoc = {
-            $set: req.body
-        }
+          $set: req.body,
+        };
         const result = await ordersCollection.updateOne(filter, updatedDoc);
         res.send(result);
       } catch (err) {
@@ -269,77 +282,96 @@ async function run() {
     });
 
     // Delete order (Admin only)
-    app.delete("/order/:id", verifyFirebaseToken, verifyAdmin, async (req, res) => {
+    app.delete(
+      "/order/:id",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
         try {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const result = await ordersCollection.deleteOne(query);
-            res.send(result);
+          const id = req.params.id;
+          const query = { _id: new ObjectId(id) };
+          const result = await ordersCollection.deleteOne(query);
+          res.send(result);
         } catch (err) {
-            res.status(500).send({ error: err.message });
+          res.status(500).send({ error: err.message });
         }
-    });
+      }
+    );
 
     // --- Stats Routes ---
 
     // Get Admin Stats
-    app.get("/admin/stats", verifyFirebaseToken, verifyAdmin, async (req, res) => {
+    app.get(
+      "/admin/stats",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
         try {
-            const users = await usersCollection.estimatedDocumentCount();
-            const books = await booksCollection.estimatedDocumentCount();
-            const orders = await ordersCollection.estimatedDocumentCount();
-            
-            // Calculate revenue (simple aggregation)
-            const payments = await paymentsCollection.find().toArray();
-            const revenue = payments.reduce((total, payment) => total + (payment.price || 0), 0);
+          const users = await usersCollection.estimatedDocumentCount();
+          const books = await booksCollection.estimatedDocumentCount();
+          const orders = await ordersCollection.estimatedDocumentCount();
 
-            res.send({
-                users,
-                books,
-                orders,
-                revenue
-            });
+          // Calculate revenue (simple aggregation)
+          const payments = await paymentsCollection.find().toArray();
+          const revenue = payments.reduce(
+            (total, payment) => total + (payment.price || 0),
+            0
+          );
+
+          res.send({
+            users,
+            books,
+            orders,
+            revenue,
+          });
         } catch (err) {
-            res.status(500).send({ error: err.message });
+          res.status(500).send({ error: err.message });
         }
-    });
-    
-    // Get Order Stats (Aggregate by status)
-    app.get("/order-stats", verifyFirebaseToken, verifyAdmin, async(req, res) =>{
-      try {
-        const result = await ordersCollection.aggregate([
-          {
-            $group: {
-              _id: '$status', // Group by status field
-              count: { $sum: 1 }
-            }
-          },
-          {
-            $project: {
-              _id: 0,
-              status: '$_id',
-              count: 1
-            }
-          }
-        ]).toArray();
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
       }
-    });
+    );
 
+    // Get Order Stats (Aggregate by status)
+    app.get(
+      "/order-stats",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const result = await ordersCollection
+            .aggregate([
+              {
+                $group: {
+                  _id: "$status",
+                  count: { $sum: 1 },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  status: "$_id",
+                  count: 1,
+                },
+              },
+            ])
+            .toArray();
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ error: err.message });
+        }
+      }
+    );
 
     // --- Payments Routes ---
 
     // Get all payments (or by email)
     app.get("/payments", verifyFirebaseToken, async (req, res) => {
-        const { email } = req.query;
-        let query = {};
-        if (email) {
-            query.email = email;
-        }
-        const result = await paymentsCollection.find(query).toArray();
-        res.send(result);
+      const { email } = req.query;
+      let query = {};
+      if (email) {
+        query.email = email;
+      }
+      const result = await paymentsCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Post Payment
@@ -360,8 +392,8 @@ async function run() {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updatedDoc = {
-            $set: req.body
-        }
+          $set: req.body,
+        };
         const result = await paymentsCollection.updateOne(filter, updatedDoc);
         res.send(result);
       } catch (err) {
@@ -371,28 +403,27 @@ async function run() {
 
     // Delete payment
     app.delete("/payment/:id", verifyFirebaseToken, async (req, res) => {
-        try {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const result = await paymentsCollection.deleteOne(query);
-            res.send(result);
-        } catch (err) {
-            res.status(500).send({ error: err.message });
-        }
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await paymentsCollection.deleteOne(query);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
-
 
     // --- Reviews Routes ---
 
     // Get reviews (by book_id)
     app.get("/reviews", async (req, res) => {
-        const { book_id } = req.query;
-        let query = {};
-        if (book_id) {
-            query.book_id = book_id; // Assuming you store book_id in review
-        }
-        const result = await reviewsCollection.find(query).toArray();
-        res.send(result);
+      const { book_id } = req.query;
+      let query = {};
+      if (book_id) {
+        query.book_id = book_id; // Assuming you store book_id in review
+      }
+      const result = await reviewsCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Post Review
@@ -413,8 +444,8 @@ async function run() {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updatedDoc = {
-            $set: req.body
-        }
+          $set: req.body,
+        };
         const result = await reviewsCollection.updateOne(filter, updatedDoc);
         res.send(result);
       } catch (err) {
@@ -424,28 +455,27 @@ async function run() {
 
     // Delete review
     app.delete("/review/:id", verifyFirebaseToken, async (req, res) => {
-        try {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const result = await reviewsCollection.deleteOne(query);
-            res.send(result);
-        } catch (err) {
-            res.status(500).send({ error: err.message });
-        }
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await reviewsCollection.deleteOne(query);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
-
 
     // --- Wishlist Routes ---
 
     // Get wishlist (by user email)
     app.get("/wishlist", verifyFirebaseToken, async (req, res) => {
-        const { email } = req.query;
-        let query = {};
-        if (email) {
-            query.email = email;
-        }
-        const result = await wishlistsCollection.find(query).toArray();
-        res.send(result);
+      const { email } = req.query;
+      let query = {};
+      if (email) {
+        query.email = email;
+      }
+      const result = await wishlistsCollection.find(query).toArray();
+      res.send(result);
     });
 
     // Add to wishlist
@@ -453,9 +483,12 @@ async function run() {
       try {
         const item = req.body;
         // Optional: Check duplicates
-        const exists = await wishlistsCollection.findOne({ email: item.email, book_id: item.book_id });
-        if(exists) {
-            return res.send({ message: "Already in wishlist" });
+        const exists = await wishlistsCollection.findOne({
+          email: item.email,
+          book_id: item.book_id,
+        });
+        if (exists) {
+          return res.send({ message: "Already in wishlist" });
         }
         const result = await wishlistsCollection.insertOne(item);
         res.send(result);
@@ -470,23 +503,22 @@ async function run() {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updatedDoc = {
-            $set: req.body
-        }
+          $set: req.body,
+        };
         const result = await wishlistsCollection.updateOne(filter, updatedDoc);
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: err.message });
       }
     });
-    
+
     // Remove from wishlist
     app.delete("/wishlist/:id", verifyFirebaseToken, async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await wishlistsCollection.deleteOne(query);
-        res.send(result);
-      });
-
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await wishlistsCollection.deleteOne(query);
+      res.send(result);
+    });
   } catch (err) {
     console.error("MongoDB connection failed:", err);
   }
