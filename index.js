@@ -284,16 +284,6 @@ async function run() {
         newOrder.createdAt = new Date();
         const result = await ordersCollection.insertOne(newOrder);
 
-        // Update Book Stock
-        const bookId = newOrder.book_id || newOrder.bookId;
-        if (bookId) {
-          const filter = { _id: new ObjectId(bookId) };
-          const updateDoc = {
-            $inc: { stock: -1 * (parseInt(newOrder.quantity) || 1) },
-          };
-          await booksCollection.updateOne(filter, updateDoc);
-        }
-
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: err.message });
@@ -437,6 +427,17 @@ async function run() {
         const newPayment = req.body;
         newPayment.createdAt = new Date();
         const result = await paymentsCollection.insertOne(newPayment);
+
+        // Update Book Stock
+        const bookId = newPayment.book_id || newPayment.bookId;
+        if (bookId) {
+          const filter = { _id: new ObjectId(bookId) };
+          const updateDoc = {
+            $inc: { stock: -1 * (parseInt(newPayment.quantity) || 1) },
+          };
+          await booksCollection.updateOne(filter, updateDoc);
+        }
+
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: err.message });
@@ -495,7 +496,8 @@ async function run() {
           const bookId = newReview.bookId;
           const reviews = await reviewsCollection.find({ bookId }).toArray();
           const count = reviews.length;
-          const average = reviews.reduce((sum, rev) => sum + rev.rating, 0) / count;
+          const average =
+            reviews.reduce((sum, rev) => sum + rev.rating, 0) / count;
 
           await booksCollection.updateOne(
             { _id: new ObjectId(bookId) },
@@ -504,8 +506,8 @@ async function run() {
                 "rating.average": parseFloat(average.toFixed(1)),
                 "rating.count": count,
                 // also set as flat rating for compatibility if needed
-                rating_flat: parseFloat(average.toFixed(1))
-              }
+                rating_flat: parseFloat(average.toFixed(1)),
+              },
             }
           );
         }
