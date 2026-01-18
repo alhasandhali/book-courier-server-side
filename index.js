@@ -228,6 +228,29 @@ async function run() {
       }
     );
 
+    // Update Book Stock (Librarian/Admin)
+    app.patch(
+      "/book/stock/:id",
+      verifyFirebaseToken,
+      verifyLibrarian,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { stock } = req.body;
+          const filter = { _id: new ObjectId(id) };
+          const updateDoc = {
+            $set: {
+              stock: parseInt(stock),
+            },
+          };
+          const result = await booksCollection.updateOne(filter, updateDoc);
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ error: err.message });
+        }
+      }
+    );
+
     // Delete book (Admin only)
     app.delete(
       "/book/:id",
@@ -260,6 +283,17 @@ async function run() {
         const newOrder = req.body;
         newOrder.createdAt = new Date();
         const result = await ordersCollection.insertOne(newOrder);
+
+        // Update Book Stock
+        const bookId = newOrder.book_id || newOrder.bookId;
+        if (bookId) {
+          const filter = { _id: new ObjectId(bookId) };
+          const updateDoc = {
+            $inc: { stock: -1 * (parseInt(newOrder.quantity) || 1) },
+          };
+          await booksCollection.updateOne(filter, updateDoc);
+        }
+
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: err.message });
@@ -280,6 +314,29 @@ async function run() {
         res.status(500).send({ error: err.message });
       }
     });
+
+    // Update order return day (Librarian/Admin)
+    app.patch(
+      "/order/return-day/:id",
+      verifyFirebaseToken,
+      verifyLibrarian,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { returnDay } = req.body;
+          const filter = { _id: new ObjectId(id) };
+          const updateDoc = {
+            $set: {
+              returnDay: returnDay,
+            },
+          };
+          const result = await ordersCollection.updateOne(filter, updateDoc);
+          res.send(result);
+        } catch (err) {
+          res.status(500).send({ error: err.message });
+        }
+      }
+    );
 
     // Delete order (Admin only)
     app.delete(
@@ -415,12 +472,12 @@ async function run() {
 
     // --- Reviews Routes ---
 
-    // Get reviews (by book_id)
+    // Get reviews (by bookId)
     app.get("/reviews", async (req, res) => {
-      const { book_id } = req.query;
+      const { bookId } = req.query;
       let query = {};
-      if (book_id) {
-        query.book_id = book_id; // Assuming you store book_id in review
+      if (bookId) {
+        query.bookId = bookId;
       }
       const result = await reviewsCollection.find(query).toArray();
       res.send(result);
@@ -432,6 +489,27 @@ async function run() {
         const newReview = req.body;
         newReview.createdAt = new Date();
         const result = await reviewsCollection.insertOne(newReview);
+
+        // Update Book Rating
+        if (newReview.bookId) {
+          const bookId = newReview.bookId;
+          const reviews = await reviewsCollection.find({ bookId }).toArray();
+          const count = reviews.length;
+          const average = reviews.reduce((sum, rev) => sum + rev.rating, 0) / count;
+
+          await booksCollection.updateOne(
+            { _id: new ObjectId(bookId) },
+            {
+              $set: {
+                "rating.average": parseFloat(average.toFixed(1)),
+                "rating.count": count,
+                // also set as flat rating for compatibility if needed
+                rating_flat: parseFloat(average.toFixed(1))
+              }
+            }
+          );
+        }
+
         res.send(result);
       } catch (err) {
         res.status(500).send({ error: err.message });
