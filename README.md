@@ -1,75 +1,98 @@
-# ⚙️ BookCourier - Robust Backend API (Server Side)
+# ⚙️ BookCourier - Server Side API
 
-The BookCourier Server is a performant and secure backend system designed to power the BookCourier ecosystem. It leverages Node.js, Express, and MongoDB to handle complex data relationships, authentication, and role-based access control.
+The **BookCourier Server** is the robust backend backbone of the BookCourier ecosystem. Built with **Node.js, Express, and MongoDB**, it manages the complex data flow between users, librarians, and administrators, ensuring secure and efficient operations for borrowing, buying, and managing books.
 
-## 🌟 Core Functionalities
+## 🚀 Live API Base URL
+**Production**: `https://bookcourier-server-side-cg1i69qjl-al-hasan-dhalis-projects.vercel.app` (Example)
+> *Note: This API is meant to be consumed by the BookCourier Client Application.*
 
-### 🔐 Security & Access Control
-- **Firebase Token Verification**: Custom middleware validates incoming Bearer tokens using the **Firebase Admin SDK**, ensuring only authenticated users can access private resources.
-- **Granular RBAC (Role-Based Access Control)**: 
-  - `verifyAdmin`: Restricts sensitive endpoints (User management, Global stats) to administrators only.
-  - `verifyLibrarian`: Grants book management permissions to librarians and admins.
-  - **Shared Access**: Routes that both Librarians and Admins can manage.
+## 🌟 Key Features
 
-### 📚 Resource Management (CRUD)
-- **Books API**:
-  - Advanced querying: Search by keyword, filter by category/status, and sort by price.
-  - Ownership tracking: Books are linked to the librarian who added them.
-- **Orders & Transactions**:
-  - Secure order placement and status updates (Pending, Issued, Returned).
-  - Payment tracking with aggregate revenue calculation.
-- **User Ecosystem**:
-  - Auto-registration of new users into the MongoDB database upon first login.
-  - Patching user roles and profile information via secure endpoints.
-- **Reviews & Personalization**:
-  - Support for book reviews to build a community-driven platform.
-  - Wishlist management for users to curate their interests.
+### 🔐 Security & Authentication
+- **Firebase Integration**: Validates **Firebase ID Tokens** via middleware to authenticate users securely.
+- **Role-Based Access Control (RBAC)**:
+  - **Admin**: Full access to user management, system statistics, and content moderation.
+  - **Librarian**: Access to book inventory management and order processing.
+  - **User**: Protected access to personal orders, payments, and wishlists.
+- **Environment Security**: Sensitive credentials (DB URI, Firebase Keys) manage via environment variables.
 
-### 📊 Business Intelligence & Aggregation
-- **Admin Stats**: Real-time aggregation of:
-  - Total Estimated Document Counts for Users, Books, and Orders.
-  - Total Revenue calculated from transaction history.
-- **Order Analytics**: Aggregates group counts by order status (e.g., how many books are currently "Issued").
+### 📚 Inventory & Stock Management
+- **Dynamic Stock Updates**:
+  - **Automated Stock Decrement**: Book stock is *automatically* reduced server-side immediately upon successful payment validation to prevent overselling.
+  - **Manual Adjustments**: Librarians can manually update stock levels for inventory corrections.
+- **Rich Querying**: API supports searching, filtering (by category/status), and sorting (by price) for the book catalog.
+
+### 💳 Transactions & Orders
+- **Payment Processing**: Secure endpoint (`/payment`) that records transactions and triggers stock updates atomically.
+- **Order Lifecycle**: Tracks orders from "Pending" to "Paid" to "Returned".
+- **Revenue tracking**: Aggregates total revenue for administrative insights.
+
+### 📊 Analytics & BI
+- **Admin Dashboard Data**: Provides real-time counts of users, books, orders, and total revenue.
+- **Order Statistics**: Aggregates orders by status to visualize performance (e.g., number of active vs. returned orders).
+
+---
 
 ## 🛠️ Technology Stack
 
 - **Runtime**: [Node.js](https://nodejs.org/)
 - **Framework**: [Express.js](https://expressjs.com/)
-- **Database**: [MongoDB](https://www.mongodb.com/) (NoSQL)
-- **Authentication**: [Firebase Admin SDK](https://firebase.google.com/docs/admin)
-- **Environment**: [Dotenv](https://www.npmjs.com/package/dotenv) for secure configuration.
-- **Deployment**: Optimized for **Vercel** serverless functions.
-
-## 📡 Essential Endpoints
-
-| Resource | Methods | Key Endpoints | Access |
-| :--- | :--- | :--- | :--- |
-| **Users** | `GET`, `POST`, `PATCH`, `DELETE` | `/users`, `/user/email/:email` | Admin / Self |
-| **Books** | `GET`, `POST`, `PATCH`, `DELETE` | `/books`, `/book/:id` | Public / Staff |
-| **Orders** | `GET`, `POST`, `PATCH`, `DELETE` | `/orders`, `/order/:id` | Admin / Staff / User |
-| **Payments**| `GET`, `POST`, `PATCH` | `/payments`, `/payment` | Staff / User |
-| **Stats** | `GET` | `/admin/stats`, `/order-stats` | Admin |
-| **Wishlist**| `GET`, `POST`, `DELETE` | `/wishlist`, `/wishlist/:id` | Private (Self) |
-
-## 🚀 Setup & Deployment
-
-1. **Environment Variables**: Create a `.env` file in the root:
-   ```env
-   PORT=5000
-   DB_USER=your_mongodb_username
-   DB_PASS=your_mongodb_password
-   FIREBASE_SERVICE_KEY=your_base64_encoded_service_account_json
-   ```
-2. **Firebase Setup**:
-   - Download your Service Account JSON from Firebase Console.
-   - Use the `encode.js` utility (or `Buffer.from(JSON.stringify(key)).toString('base64')`) to convert it into a single-line string for your `.env`.
-3. **Execution**:
-   ```bash
-   npm install
-   npm run dev  # For development with nodemon
-   npm start    # For production
-   ```
+- **Database**: [MongoDB](https://www.mongodb.com/) (Native Driver)
+- **Auth**: [Firebase Admin SDK](https://firebase.google.com/docs/admin)
+- **Deployment**: Vercel (Serverless)
 
 ---
 
-Developed for scalability and performance.
+## 📡 API Endpoints Overview
+
+| Category | Endpoint | Method(s) | Description | Access |
+| :--- | :--- | :--- | :--- | :--- |
+| **Auth** | `/jwt` | `POST` | (Handled via Firebase on Client) | Public |
+| **Users** | `/users` | `GET` | Get all users | Admin |
+| | `/user/:email` | `GET` | Get user details | Self/Admin |
+| **Books** | `/books` | `GET` | Get all books (with query params) | Public |
+| | `/book` | `POST` | Add a new book | Librarian |
+| | `/book/:id` | `PATCH` | Update book details | Librarian |
+| | `/book/stock/:id`| `PATCH` | Update specific stock count | Librarian |
+| **Orders** | `/orders` | `GET` | Get all orders | Admin |
+| | `/order` | `POST` | Create an order | User |
+| **Payment**| `/payment` | `POST` | Process payment & update stock | User |
+| **Stats** | `/admin/stats` | `GET` | System-wide statistics | Admin |
+
+---
+
+## ⚙️ Local Development Setup
+
+clone the repository and navigate to the server directory.
+
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Configure Environment
+Create a `.env` file in the root directory with the following credentials:
+```env
+PORT=5000
+DB_USER=your_mongodb_username
+DB_PASS=your_mongodb_password
+FIREBASE_SERVICE_KEY=your_base64_encoded_service_account_json
+```
+> **Tip**: Use `node encode.js` (if available) to generate the base64 string for your Firebase service account JSON.
+
+### 3. Run the Server
+```bash
+# Development Mode (with nodemon)
+npm run dev
+
+# Production Mode
+npm start
+```
+
+---
+
+## 📦 Deployment
+This project is configured for **Vercel** deployment.
+- Ensure `vercel.json` is configured correctly.
+- Add environment variables in the Vercel Project Settings.
+- Push to main/master to trigger deployment.
